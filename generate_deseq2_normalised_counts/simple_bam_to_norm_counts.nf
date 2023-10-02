@@ -6,7 +6,7 @@ params {
     bamFilesDir = '.' // Default directory containing BAM files
     outputDir = '.' // Default output directory
     coldata = './coldata.csv' // Path to coldata.csv
-    designFormula = '~ group' // Default design formula
+    designFormula = '~ condition' // Default design formula
 }
 
 // Define the Ensembl GTF URL
