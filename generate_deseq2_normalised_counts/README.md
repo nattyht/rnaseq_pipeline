@@ -20,7 +20,7 @@ Before using this script, ensure that you have the following prerequisites insta
    - `ensemblRelease`: Ensembl release version (default: 'release-93').
    - `bamFilesDir`: Directory containing BAM files (default: current directory).
    - `outputDir`: Directory for storing output files (default: current directory).
-   - `coldata`: Path to SampleInformation.csv (default: current directory).
+   - `coldata`: Path to coldata.csv (default: './coldata.csv').
    - `designFormula`: Design formula for DESeq2 analysis (default: '~ group').
 
    Example usage:
