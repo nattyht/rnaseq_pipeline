@@ -35,7 +35,8 @@ FastQC will be run on all *.fastq.gz files in the current directory, and the res
 
 MultiQC will generate a summary report for the FastQC results and save it in the current directory.
 
-Example Usage
+### Example Usage
+
 Run the script with default options:
 
 ```
@@ -48,7 +49,7 @@ Run the script with custom output directory and MultiQC options:
 ./fastqc_multiqc_script.sh -o MyFastQCResults -m "--cl_config general:read_count_file"
 ```
 
-Additional Information
+## Additional Information
 You can customize the FastQC and MultiQC analyses further by modifying the script or using additional FastQC and MultiQC options as needed.
 
 If you encounter any issues or have questions about the analysis, please refer to the FastQC documentation and MultiQC documentation for guidance.
