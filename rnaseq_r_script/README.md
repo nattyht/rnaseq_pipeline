@@ -52,12 +52,8 @@ If you encounter any issues or errors while running the script, please refer to 
 
 ## License
 
-This script is provided under an open-source license. You are free to use, modify, and distribute it in accordance with the terms of the license (if specified). Please review the license information in the script or the associated documentation.
+This script is provided under an open-source license. You are free to use, modify, and distribute it in accordance with the terms of the license (if specified).
 
 ## Author
 
-[Your Name]
-
-## Acknowledgments
-
-- [List any acknowledgments or credits for libraries, data sources, or tutorials you used.]
+Dr. Nathaniel Hafford Tear
