@@ -3,9 +3,9 @@
 // Define input parameters
 params {
     ensemblRelease = 'release-93' // Default Ensembl release
-    bamFilesDir = '/path/to/bam/files' // Default directory containing BAM files
-    outputDir = '/path/to/output' // Default output directory
-    coldata = '/path/to/coldata.csv' // Path to SampleInformation.csv
+    bamFilesDir = '.' // Default directory containing BAM files
+    outputDir = '.' // Default output directory
+    coldata = './coldata.csv' // Path to coldata.csv
     designFormula = '~ group' // Default design formula
 }
 
