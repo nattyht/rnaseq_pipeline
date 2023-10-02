@@ -1,0 +1,212 @@
+# User-defined input file names
+input_dir <- "Z:/NathanHaffordTear/RNAseqSep2019/RNAseqAnalysis/PPCD1vsPPCD3vsControl"
+sample_info_file <- "SampleInformation.sal.csv"
+output_dir <- "output_directory"  # Specify your output directory
+
+# Load required libraries
+library("DESeq2")
+library("stringr")
+library("ggplot2")
+library("ggpubr")
+library("dplyr")
+library("pheatmap")
+library("RColorBrewer")
+library("tidyverse")
+library("tibble")
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+library("ggbeeswarm")
+library("biomaRt")
+library("genefilter")
+library(viridis)
+
+# CONTROL vs PPCD1
+# Finding intersecting significant genes
+# Define your significant genes criteria
+fdr_threshold <- 0.05
+lfc_threshold <- 1
+
+# Importing Salmon quants
+quants_dir <- file.path(input_dir, "quants")
+list.files(quants_dir)
+
+# Load sample information
+coldata <- read.csv(sample_info_file, row.names = 1, stringsAsFactors = FALSE)
+coldata$names <- coldata$run
+coldata$files <- file.path(quants_dir, coldata$run, "quant.sf")
+file.exists(coldata$files)
+
+# Import data to the tximeta package
+library("tximeta")
+se <- tximeta(coldata)
+dim(se)
+head(rownames(se))
+
+# Generating DESeq Normalized counts at the Transcript level
+# Define your levels
+se$comparison <- factor(se$comparison, levels = c("Control", "PPCD"))
+se$batch <- factor(se$batch, levels = c("two", "three"))
+se$diagnosis <- factor(se$diagnosis, levels = c("Control", "PPCD1"))
+
+# Generate counts
+dds.transcript <- DESeqDataSet(se, design = ~ batch + diagnosis)
+dds.transcript <- estimateSizeFactors(dds.transcript)
+norm_counts.transcript <- as.data.frame(counts(dds.transcript, normalized = TRUE))
+
+# Add gene names
+library("org.Hs.eg.db")
+ens.str <- substr(rownames(norm_counts.transcript), 1, 15)
+norm_counts.transcript$symbol <- mapIds(org.Hs.eg.db,
+                                        keys = ens.str,
+                                        column = "SYMBOL",
+                                        keytype = "ENSEMBL",
+                                        multiVals = "first")
+norm_counts.transcript$genename <- mapIds(org.Hs.eg.db,
+                                          keys = ens.str,
+                                          column = "GENENAME",
+                                          keytype = "ENSEMBL",
+                                          multiVals = "first")
+norm_counts.transcript$entrez <- mapIds(org.Hs.eg.db,
+                                        keys = ens.str,
+                                        column = "ENTREZID",
+                                        keytype = "ENSEMBL",
+                                        multiVals = "first")
+
+# Write normalized counts to a CSV file
+write.csv(norm_counts.transcript, file = file.path(output_dir, "norm_counts_transcript.csv"))
+
+# For gene-level analysis, summarize the transcripts
+gse <- summarizeToGene(se)
+dim(gse)
+head(rownames(gse))
+
+# Remove version names from Ensembl IDs
+rownames(gse) <- gsub("\\.[0-9]*$", "", rownames(gse))
+
+# tximeta has created an object gse with three matrices: "counts," "abundance," and "length"
+data(gse)
+gse
+
+# Define levels
+gse$comparison <- factor(gse$comparison, levels = c("Control", "PPCD"))
+gse$batch <- factor(gse$batch, levels = c("two", "three"))
+gse$diagnosis <- factor(gse$diagnosis, levels = c("Control", "PPCD1"))
+
+# Check the millions of fragments mapped by Salmon to the genes
+round(colSums(assay(gse)) / 1e6, 1)
+
+# Pick designs for later contrasts (group contrasts)
+# C vs PPCD1
+dds.sm <- DESeqDataSet(gse, design = ~ batch + diagnosis)
+
+# Remove rows with no counts or only five or more counts across all samples
+boxplot(log10(counts(dds.sm) + 1))
+
+# Normalize counts
+dds.sm <- estimateSizeFactors(dds.sm)
+boxplot(log10(counts(dds.sm, normalized = TRUE) + 1))
+
+# Choose a transformation method (e.g., rlog for small datasets)
+rld.sm <- rlog(dds.sm, blind = FALSE)
+
+# Distance plot
+sampleDists <- dist(t(assay(rld.sm)))
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- paste(rld.sm$diagnosis, rld.sm$name, sep = " - ")
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette(rev(viridis::viridis(10)))(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+
+# Differential expression analysis
+# Create design matrix
+design <- ~batch + diagnosis
+
+# Create DESeqDataSet object
+dds <- DESeqDataSet(gse, design = design)
+
+# Differential expression analysis
+dds <- DESeq(dds)
+
+# Results at gene level
+resultsNames(dds)
+res <- results(dds, contrast = c("diagnosis", "Control", "PPCD1"))
+summary(res)
+
+# Filter results for significantly different genes
+sig_genes <- subset(res, padj < fdr_threshold & abs(log2FoldChange) > lfc_threshold)
+sig_genes
+
+# Create a plot of the significantly different genes
+plotMA(res)
+
+# Volcano plot
+res$logPadj <- -log10(res$padj)
+ggplot(res, aes(x = log2FoldChange, y = logPadj, color = factor(res$diagnosis))) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = -log10(fdr_threshold), linetype = "dashed", color = "red") +
+  geom_vline(xintercept = c(-lfc_threshold, lfc_threshold), linetype = "dashed", color = "red") +
+  labs(title = "Volcano Plot",
+       x = "Log2 Fold Change",
+       y = "-log10(FDR)") +
+  theme_minimal()
+
+# Heatmap of significantly different genes
+# Extract normalized counts of significantly different genes
+sig_genes_ids <- rownames(sig_genes)
+sig_genes_counts <- counts(dds, normalized = TRUE)[sig_genes_ids, ]
+
+# Create a heatmap
+heatmap(sig_genes_counts, scale = "row", col = viridis(50), margins = c(5, 10))
+
+# Save the heatmap as an image
+ggsave(file.path(output_dir, "heatmap.png"), device = "png", dpi = 300)
+
+# Pathway analysis using enrichR
+library("enrichR")
+library("clusterProfiler")
+library("org.Hs.eg.db")
+library("AnnotationDbi")
+
+# Create a gene list of significantly different genes
+gene_list <- sig_genes$symbol
+
+# Perform gene set enrichment analysis
+enrichment_results <- enrichr(gene_list = gene_list)
+
+# Save enrichment results to a file
+write.csv(enrichment_results, file.path(output_dir, "enrichment_results.csv"))
+
+# Plot the top enriched pathways
+enrichment_results %>%
+  head(10) %>%
+  ggplot(aes(x = log2FoldChange, y = -log10(pvalue), color = gene_set_library)) +
+  geom_point() +
+  labs(title = "Enriched Pathways",
+       x = "Log2 Fold Change",
+       y = "-log10(p-value)") +
+  theme_minimal()
+
+# Gene Ontology (GO) enrichment analysis
+go_results <- enrichGO(gene = gene_list,
+                       OrgDb = org.Hs.eg.db,
+                       keyType = "SYMBOL",
+                       ont = "BP",
+                       pAdjustMethod = "BH",
+                       pvalueCutoff = 0.05,
+                       qvalueCutoff = 0.05)
+
+# Save GO enrichment results to a file
+write.csv(go_results, file.path(output_dir, "go_enrichment_results.csv"))
+
+# Plot the top enriched GO terms
+go_results %>%
+  head(10) %>%
+  ggplot(aes(x = log2FoldChange, y = -log10(pvalue))) +
+  geom_point() +
+  labs(title = "Enriched GO Terms",
+       x = "Log2 Fold Change",
+       y = "-log10(p-value)") +
+  theme_minimal()
