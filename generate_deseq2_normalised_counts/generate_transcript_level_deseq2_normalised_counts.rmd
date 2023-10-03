@@ -1,0 +1,75 @@
+# Load required libraries
+library(tximeta)
+library(DESeq2)
+
+## User Input
+## You can specify the folder containing the Salmon quants data and other input/output data as follows:
+
+# Replace 'your_folder_path' with the path to your Salmon quants data folder
+dir <- "your_folder_path"
+
+# Replace 'coldata.csv' with your sample information file name if necessary
+sample_info_file <- "coldata.csv"
+
+# Replace 'norm_counts.transcript.csv' with your desired output file name for transcript-level counts
+transcript_output_file <- "norm_counts.transcript.csv"
+
+# Replace 'norm_counts.csv' with your desired output file name for gene-level counts
+gene_output_file <- "norm_counts.csv"
+
+## Locate Salmon Quants Data
+## You can locate the Salmon quants data in the specified folder as follows:
+
+# List files in the specified folder
+list.files(dir)
+
+# List files in the 'quants' subfolder
+list.files(file.path(dir, "quants"))
+
+## Read Sample Information
+## Read the sample information from the provided CSV file:
+
+coldata <- read.csv(sample_info_file, row.names = 1, stringsAsFactors = FALSE)
+coldata$names <- coldata$run
+coldata$files <- file.path(dir, "quants", coldata$run, "quant.sf")
+file.exists(coldata$files)
+
+## Create tximeta Object
+## Create a tximeta object:
+
+se <- tximeta(coldata)
+dim(se)
+
+## Generating DESeq Normalized Counts at Transcript Level
+## You can generate DESeq normalized counts at the transcript level and save them to a CSV file:
+
+se$condition <- factor(se$condition, levels = c("Control", "Case"))
+se$batch <- factor(se$batch, levels = c("one", "two"))
+
+levels(se$comparison)
+levels(se$batch)
+
+# Generate DESeqDataSet
+dds.transcript <- DESeqDataSet(se, design = ~ batch + condition)
+dds.transcript <- estimateSizeFactors(dds.transcript)
+norm_counts.transcript <- as.data.frame(counts(dds.transcript, normalized = TRUE))
+write.csv(norm_counts.transcript, file = transcript_output_file)
+
+## Summarize to Gene Level
+## Summarize the data to the gene level:
+
+gse <- summarizeToGene(se)
+
+# Removing version names from Ensembl IDs
+rownames(gse) <- gsub("\\.[0-9]*$", "", rownames(gse))
+
+## DESeq Analysis at Gene Level
+## Perform DESeq analysis at the gene level and save normalized counts to a CSV file:
+
+dds <- DESeqDataSet(gse, design = ~ batch + diagnosis)
+dds <- estimateSizeFactors(dds)
+norm_counts <- as.data.frame(counts(dds, normalized = TRUE))
+norm_counts <- merge(rownames(dds.sm), norm_counts, by = "row.names", sort = FALSE)
+names(norm_counts)[1] <- "Gene"
+write.csv(norm_counts, file = gene_output_file)
+
