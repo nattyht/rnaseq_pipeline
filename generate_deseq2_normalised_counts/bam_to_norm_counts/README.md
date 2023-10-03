@@ -1,6 +1,6 @@
-# Nextflow RNA-Seq Analysis Pipeline
+# Nextflow DESeq2 normalised counts from .bam pipeline
 
-This Nextflow script automates the process of downloading an Ensembl GTF file, generating feature counts from a list of BAM files, and performing DESeq2 analysis in R for RNA-Seq data analysis.
+This Nextflow script automates the process of downloading an Ensembl GTF file, generating feature counts from a list of BAM files, and performing DESeq2 analysis in R for generating normalised counts.
 
 ## Prerequisites
 
